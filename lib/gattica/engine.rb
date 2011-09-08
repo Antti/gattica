@@ -233,15 +233,15 @@ module Gattica
         end
       end
 
-      # make sure that the user is only trying to filter fields that are in dimensions or metrics
-      if args[:filters]
-        missing = args[:filters].find_all do |arg|
-          !possible.include? arg.match(/^\w*/).to_s    # get the name of the filter and compare
-        end
-        unless missing.empty?
-          raise GatticaError::InvalidSort, "You are trying to filter by fields that are not in the available dimensions or metrics: #{missing.join(', ')}"
-        end
-      end
+      # # make sure that the user is only trying to filter fields that are in dimensions or metrics
+      # if args[:filters]
+      #   missing = args[:filters].find_all do |arg|
+      #     !possible.include? arg.match(/^\w*/).to_s    # get the name of the filter and compare
+      #   end
+      #   unless missing.empty?
+      #     raise GatticaError::InvalidSort, "You are trying to filter by fields that are not in the available dimensions or metrics: #{missing.join(', ')}"
+      #   end
+      # end
 
       return args
     end
@@ -268,11 +268,11 @@ module Gattica
     # If the authorization is a email and password then create User objects
     # or if it's a previous token, use that.  Else, raise exception.
     def check_init_auth_requirements
-      if ((defined? @options[:email]) && (defined? @options[:password]))
+      if (@options[:email] && @options[:password])
         @user = User.new(@options[:email], @options[:password])
         @auth = Auth.new(@http, user)
         self.token = @auth.tokens[:auth]
-      elsif (defined? @options[:token])
+      elsif @options[:token]
         self.token = @options[:token]
       else
         raise GatticaError::NoLoginOrToken, 'An email and password or an authentication token is required to initialize Gattica.'
