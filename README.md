@@ -21,7 +21,7 @@ Installation
 ------------
 Add Gattica to your Gemfile
 
-    gem 'gattica', :git => 'git://github.com/chrisle/gattica.git'
+    gem 'gattica', :git => 'git://github.com/reevoo/gattica.git'
 
 Don't forget to bundle install:
 
@@ -33,10 +33,7 @@ Login, get a list of accounts, pick an account, and get data:
     require 'gattica'
     
     # Login
-    ga = Gattica.new({ 
-        :email => 'email@gmail.com', 
-        :password => 'password'
-    })
+    ga = Gattica.new(:email => 'email@gmail.com', :password => 'password')
 
     # Get a list of accounts
     accounts = ga.accounts
@@ -45,12 +42,12 @@ Login, get a list of accounts, pick an account, and get data:
     ga.profile_id = accounts.first.profile_id
 
     # Get the data
-    data = ga.get({ 
+    data = ga.get(
         :start_date   => '2011-01-01',
         :end_date     => '2011-04-01',
         :dimensions   => ['month', 'year'],
         :metrics      => ['visits', 'bounces'],
-    })
+    )
 
     # Show the data
     puts data.inspect
@@ -281,13 +278,22 @@ Learn more about filters: [Google Data feed filtering reference](http://code.goo
 
     # Return visits and bounces for mobile traffic 
     # (Google's default user segment gaid::-11)
-    
+    # You can only use 1 segment a time.
+
     mobile_traffic = ga.get({ 
       :start_date   => '2011-01-01', 
       :end_date     => '2011-02-01', 
       :dimensions   => ['month', 'year'],
       :metrics      => ['visits', 'bounces'],
-      :segment      => ['gaid::-11']
+      :segment      => 'gaid::-11'
+    })
+
+    my_segment_traffic = ga.get({
+      :start_date   => '2011-01-01',
+      :end_date     => '2011-02-01',
+      :dimensions   => ['month', 'year'],
+      :metrics      => ['visits', 'bounces'],
+      :segment      => ga.segments.find{|segment| segment.name == "My segment"}.id
     })
 
 ### Filtering

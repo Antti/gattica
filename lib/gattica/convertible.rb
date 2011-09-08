@@ -8,7 +8,7 @@ module Gattica
     def to_h
       output = {}
       instance_variables.each do |var|
-        output.merge!({ var[1..-1] => instance_variable_get(var) }) unless var == '@xml'    # exclude the whole XML dump
+        output.merge!({ var[1..-1] => instance_variable_get(var) }) unless var == :'@xml'    # exclude the whole XML dump
       end
       output.tap { |h| h.include? HashExtensions }
     end
