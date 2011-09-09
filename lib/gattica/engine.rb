@@ -216,8 +216,8 @@ module Gattica
     # Validates that the args passed to +get+ are valid
     def validate_and_clean(args)
 
-      raise GatticaError::MissingStartDate, ':start_date is required' if args[:start_date].nil? || args[:start_date].empty?
-      raise GatticaError::MissingEndDate, ':end_date is required' if args[:end_date].nil? || args[:end_date].empty?
+      raise GatticaError::MissingStartDate, ':start_date is required' if args[:start_date].nil? || args[:start_date].to_s.empty?
+      raise GatticaError::MissingEndDate, ':end_date is required' if args[:end_date].nil? || args[:end_date].to_s.empty?
       raise GatticaError::TooManyDimensions, 'You can only have a maximum of 7 dimensions' if args[:dimensions] && (args[:dimensions].is_a?(Array) && args[:dimensions].length > 7)
       raise GatticaError::TooManyMetrics, 'You can only have a maximum of 10 metrics' if args[:metrics] && (args[:metrics].is_a?(Array) && args[:metrics].length > 10)
 
