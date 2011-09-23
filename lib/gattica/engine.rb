@@ -2,7 +2,7 @@ module Gattica
   class Engine
 
     attr_reader :user
-    attr_accessor :profile_id, :token
+    attr_accessor :profile_id, :token, :oauth_access_token
 
     # Initialize Gattica using username/password or token.
     #
@@ -19,8 +19,8 @@ module Gattica
     def initialize(options={})
       @options = Settings::DEFAULT_OPTIONS.merge(options)
       handle_init_options(@options)
-      create_http_connection()
-      check_init_auth_requirements()
+      create_http_connection
+      check_init_auth_requirements
       # TODO: check that the user has access to the specified profile and show an error here rather than wait for Google to respond with a message
     end
 
@@ -47,9 +47,9 @@ module Gattica
       if @user_accounts.nil?
         data = request_default_account_feed
         xml = Hpricot(data)
-        @user_accounts = xml.search(:entry).collect { |entry| Account.new(entry) }
+        @user_accounts = xml.search(:entry).map { |entry| Account.new(entry) }
       end
-      return @user_accounts
+      @user_accounts
     end
 
     # Returns the list of segments available to the authenticated user.
@@ -70,9 +70,9 @@ module Gattica
       if @user_segments.nil?
         data = request_default_account_feed
         xml = Hpricot(data)
-        @user_segments = xml.search("dxp:segment").collect { |s| Segment.new(s) }
+        @user_segments = xml.search("dxp:segment").map { |s| Segment.new(s) }
       end
-      return @user_segments
+      @user_segments
     end
 
     # This is the method that performs the actual request to get data.
@@ -118,17 +118,6 @@ module Gattica
       #data = do_http_get("/analytics/feeds/data?ids=ga%3A915568&metrics=ga%3Avisits&segment=gaid%3A%3A-7&start-date=2010-03-29&end-date=2010-03-29&max-results=50")
       return DataSet.new(Hpricot.XML(data))
     end
-
-
-    # Since google wants the token to appear in any HTTP call's header, we have to set that header
-    # again any time @token is changed so we override the default writer (note that you need to set
-    # @token with self.token= instead of @token=)
-
-    def token=(token)
-      @token = token
-      set_http_headers
-    end
-
     ######################################################################
     private
 
@@ -137,38 +126,49 @@ module Gattica
       if @default_account_feed.nil?
         @default_account_feed = do_http_get('/analytics/feeds/accounts/default')
       end
-      return @default_account_feed
+      @default_account_feed
     end
 
     # Does the work of making HTTP calls and then going through a suite of tests on the response to make
     # sure it's valid and not an error
 
     def do_http_get(query_string)
-      response, data = @http.get(query_string, @headers)
-
+      headers = {'GData-Version' => '2'}.merge(@headers)
+      code, data = if self.token
+        do_auth_request(query_string,headers)
+      else
+        do_oauth_request(query_string, headers)
+      end
+      code = code.to_i
       # error checking
-      if response.code != '200'
-        case response.code
-        when '400'
-          raise GatticaError::AnalyticsError, response.body + " (status code: #{response.code})"
-        when '401'
-          raise GatticaError::InvalidToken, "Your authorization token is invalid or has expired (status code: #{response.code})"
+      if code != 200
+        case code
+        when 400
+          raise GatticaError::AnalyticsError, data + " (status code: #{code})"
+        when 401
+          raise GatticaError::InvalidToken, "Your authorization token is invalid or has expired (status code: #{code})"
         else  # some other unknown error
-          raise GatticaError::UnknownAnalyticsError, response.body + " (status code: #{response.code})"
+          raise GatticaError::UnknownAnalyticsError, data + " (status code: #{code})"
         end
       end
 
-      return data
+      data
     end
-
-
-    # Sets up the HTTP headers that Google expects (this is called any time @token is set either by Gattica
-    # or manually by the user since the header must include the token)
-    def set_http_headers
-      @headers['Authorization'] = "GoogleLogin auth=#{@token}"
-      @headers['GData-Version']= '2'
+    
+    def do_auth_request(query_string, headers)
+      response, data = @http.get(query_string, headers.merge('Authorization' => "GoogleLogin auth=#{@token}"))
+      [response.code, data]
     end
-
+    def do_oauth_request(query_string,headers)
+      case oauth_access_token.class.to_s
+      when "OAuth2::AccessToken"
+        r = oauth_access_token.get(query_string, :headers =>headers)
+        [r.status, r.body]
+      when "OAuth::AccessToken"
+        r, data = oauth_access_token.get(query_string, headers)
+        [r.code, data]
+      end
+    end
 
     # Creates a valid query string for GA
     def build_query_string(args,profile)
@@ -209,7 +209,7 @@ module Gattica
           end
         end.join(';')
       end
-      return output
+      output
     end
 
 
@@ -260,7 +260,7 @@ module Gattica
       @profile_id = options[:profile_id]
       @user_accounts = nil # filled in later if the user ever calls Gattica::Engine#accounts
       @user_segments = nil
-      @headers = { }.merge(options[:headers]) # headers used for any HTTP requests (Google requires a special 'Authorization' header which is set any time @token is set)
+      @headers = options[:headers].clone # headers used for any HTTP requests (Google requires a special 'Authorization' header which is set any time @token is set)
       @default_account_feed = nil
 
     end
@@ -274,6 +274,8 @@ module Gattica
         self.token = @auth.tokens[:auth]
       elsif @options[:token]
         self.token = @options[:token]
+      elsif @options[:oauth_access_token]
+        self.oauth_access_token = @options[:oauth_access_token]
       else
         raise GatticaError::NoLoginOrToken, 'An email and password or an authentication token is required to initialize Gattica.'
       end

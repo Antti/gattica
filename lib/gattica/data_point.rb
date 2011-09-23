@@ -20,6 +20,7 @@ module Gattica
         h[dimension.attributes['name'].split(':').last.to_sym] = dimension.attributes['value'].split(':').last;h
       end
       @metrics = xml.search('dxp:metric').inject({}) do |h,metric|
+        #There's also type: float, time, percent, etc
         h[metric.attributes['name'].split(':').last.to_sym] = metric.attributes['value'].split(':').last.to_f.round(2);h
       end
     end
