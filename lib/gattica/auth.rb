@@ -1,12 +1,5 @@
-require 'net/http'
-require 'net/https'
-
 module Gattica
-  
-  # Authenticates a user against the Google Client Login system
-  
   class Auth
-    
     include Convertible
 
     SCRIPT_NAME = '/accounts/ClientLogin'
@@ -20,7 +13,8 @@ module Gattica
       options = OPTIONS.merge(user.to_h)
       options.extend HashExtensions
       
-      response, data = http.post(SCRIPT_NAME, options.to_query, HEADERS)
+      response = http.post(SCRIPT_NAME, options.to_query, HEADERS)
+      data = response.body ||= ''
       if response.code != '200'
         case response.code
         when '403'

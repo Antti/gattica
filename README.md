@@ -420,6 +420,37 @@ History
 
 Version history
 ---------------
+### 0.6.1
+  * Incorporated fixes by vgololobov
+    * Removed circular dependency
+    * Fixed 1.9.3 init exception https://github.com/chrisle/gattica/pull/6
+
+### 0.6.0
+  * Update to use Google Analytics v2.4 management API
+
+    TL;DR: Uses the v2.4 API now because Google deprecated <2.3.
+      
+    * :) - Drop-in replacement for you.
+    * :) - Won't timeout anymore.
+    * :) - Accounts method might be faster if you have a few profiles
+    * :( - Accounts method is notably slower if you have >1000 profiles.
+
+    Google has changed the output of the API < 2.3.  Most notable changes
+    were the output of what was the /management/accounts/default call.  Some 
+    of the XML changed, but most notably it didn't return everything all at
+    once.  It used to look like this: http://bit.ly/w6Ummj
+    
+  * Fixed token [deviantech]
+
+### 0.5.1
+  * Added some tests - needs more work :(
+
+### 0.4.7
+  * Removed version numbers [john mcgrath]
+
+### 0.4.6
+  * Removed monkey patch [mathieuravaux]
+
 ### 0.4.4
   * Added a configuration file to unit tests
   * Removed version.rb.  Not needed. (thanks John McGrath see: github.com/john)

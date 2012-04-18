@@ -26,24 +26,25 @@ module Gattica
     end
 
     # Outputs in Comma Seperated Values format
-    def to_csv(format = :long)
+    def to_csv(format = :short)
       output = ''
       columns = []
 
       # only output
       case format
       when :long
+
         [@id, @updated, @title].each { |c| columns << c }
       end
 
       # output all dimensions
-      @dimensions.values.each { |c| columns << c }
 
+      @dimensions.map {|d| d.values.first}.each { |c| columns << c }
       # output all metrics
-      @metrics.values.each { |c| columns << c }
+      @metrics.map {|m| m.values.first}.each { |c| columns << c }
 
       output = CSV.generate_line(columns)
-      return output
+
     end
 
 

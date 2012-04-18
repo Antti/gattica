@@ -2,7 +2,7 @@ module Gattica
   class Engine
 
     attr_reader :user
-    attr_accessor :profile_id, :token, :oauth_access_token
+    attr_accessor :profile_id, :token, :oauth_access_token, :user_accounts
 
     # Initialize Gattica using username/password or token.
     #
@@ -19,10 +19,9 @@ module Gattica
     def initialize(options={})
       @options = Settings::DEFAULT_OPTIONS.merge(options)
       handle_init_options(@options)
-      create_http_connection
+      create_http_connection('www.google.com')
       check_init_auth_requirements
-      # TODO: check that the user has access to the specified profile and show an error here rather than wait for Google to respond with a message
-    end
+   end
 
     # Returns the list of accounts the user has access to. A user may have
     # multiple accounts on Google Analytics and each account may have multiple
@@ -43,11 +42,30 @@ module Gattica
     # See Gattica::Engine#get to see how to get some data.
 
     def accounts
-      # if we haven't retrieved the user's accounts yet, get them now and save them
       if @user_accounts.nil?
-        data = request_default_account_feed
-        xml = Hpricot(data)
-        @user_accounts = xml.search(:entry).map { |entry| Account.new(entry) }
+        create_http_connection('www.googleapis.com')
+
+        # get profiles
+        response = do_http_get("/analytics/v2.4/management/accounts/~all/webproperties/~all/profiles?max-results=10000")
+        xml = Hpricot(response)
+        @user_accounts = xml.search(:entry).collect { |profile_xml|
+          Account.new(profile_xml)
+        }
+
+        # Fill in the goals
+        response = do_http_get("/analytics/v2.4/management/accounts/~all/webproperties/~all/profiles/~all/goals?max-results=10000")
+        xml = Hpricot(response)
+        @user_accounts.each do |ua|
+          xml.search(:entry).each { |e| ua.set_goals(e) }
+        end
+
+        # Fill in the account name
+        response = do_http_get("/analytics/v2.4/management/accounts?max-results=10000")
+        xml = Hpricot(response)
+        @user_accounts.each do |ua|
+          xml.search(:entry).each { |e| ua.set_account_name(e) }
+        end
+
       end
       @user_accounts
     end
@@ -68,9 +86,11 @@ module Gattica
 
     def segments
       if @user_segments.nil?
-        data = request_default_account_feed
-        xml = Hpricot(data)
-        @user_segments = xml.search("dxp:segment").map { |s| Segment.new(s) }
+        response = do_http_get("/analytics/v2.4/management/segments?max-results=10000")
+        xml = Hpricot(response)
+        @user_segments = xml.search("dxp:segment").collect { |s|
+          Segment.new(s)
+        }
       end
       @user_segments
     end
@@ -114,20 +134,12 @@ module Gattica
       args = validate_and_clean(Settings::DEFAULT_ARGS.merge(args))
       query_string = build_query_string(args,@profile_id)
       @logger.debug(query_string) if @debug
-      data = do_http_get("/analytics/feeds/data?#{query_string}")
-      #data = do_http_get("/analytics/feeds/data?ids=ga%3A915568&metrics=ga%3Avisits&segment=gaid%3A%3A-7&start-date=2010-03-29&end-date=2010-03-29&max-results=50")
+      create_http_connection('www.googleapis.com')
+      data = do_http_get("/analytics/v2.4/data?#{query_string}")
       return DataSet.new(Hpricot.XML(data))
     end
     ######################################################################
     private
-
-    # Gets the default account feed from Google
-    def request_default_account_feed
-      if @default_account_feed.nil?
-        @default_account_feed = do_http_get('/analytics/feeds/accounts/default')
-      end
-      @default_account_feed
-    end
 
     # Does the work of making HTTP calls and then going through a suite of tests on the response to make
     # sure it's valid and not an error
@@ -154,7 +166,7 @@ module Gattica
 
       data
     end
-    
+
     def do_auth_request(query_string, headers)
       response, data = @http.get(query_string, headers.merge('Authorization' => "GoogleLogin auth=#{@token}"))
       [response.code, data]
@@ -246,12 +258,12 @@ module Gattica
       return args
     end
 
-    def create_http_connection
+    def create_http_connection(server)
       port = Settings::USE_SSL ? Settings::SSL_PORT : Settings::NON_SSL_PORT
-      @http = Net::HTTP.new(Settings::SERVER, port)
+      @http = Net::HTTP.new(server, port)
       @http.use_ssl = Settings::USE_SSL
       @http.set_debug_output $stdout if @options[:debug]
-      @http.read_timeout = @options[:timeout] if defined? @options[:timeout]
+      @http.read_timeout = @options[:timeout] if @options[:timeout]
     end
 
     # Sets instance variables from options given during initialization and
