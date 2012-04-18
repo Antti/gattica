@@ -19,7 +19,6 @@ module Gattica
     def initialize(options={})
       @options = Settings::DEFAULT_OPTIONS.merge(options)
       handle_init_options(@options)
-      create_http_connection('www.google.com')
       check_init_auth_requirements
    end
 
@@ -43,8 +42,6 @@ module Gattica
 
     def accounts
       if @user_accounts.nil?
-        create_http_connection('www.googleapis.com')
-
         # get profiles
         response = do_http_get("/analytics/v2.4/management/accounts/~all/webproperties/~all/profiles?max-results=10000")
         xml = Hpricot(response)
@@ -134,7 +131,6 @@ module Gattica
       args = validate_and_clean(Settings::DEFAULT_ARGS.merge(args))
       query_string = build_query_string(args,@profile_id)
       @logger.debug(query_string) if @debug
-      create_http_connection('www.googleapis.com')
       data = do_http_get("/analytics/v2.4/data?#{query_string}")
       return DataSet.new(Hpricot.XML(data))
     end
@@ -168,9 +164,11 @@ module Gattica
     end
 
     def do_auth_request(query_string, headers)
+      @http || create_http_connection("www.googleapis.com")
       response, data = @http.get(query_string, headers.merge('Authorization' => "GoogleLogin auth=#{@token}"))
       [response.code, data]
     end
+
     def do_oauth_request(query_string,headers)
       case oauth_access_token.class.to_s
       when "OAuth2::AccessToken"
@@ -264,6 +262,7 @@ module Gattica
       @http.use_ssl = Settings::USE_SSL
       @http.set_debug_output $stdout if @options[:debug]
       @http.read_timeout = @options[:timeout] if @options[:timeout]
+      @http
     end
 
     # Sets instance variables from options given during initialization and
