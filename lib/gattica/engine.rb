@@ -209,6 +209,7 @@ module Gattica
       end
 
       # TODO: update so that in regular expression filters (=~ and !~), any initial special characters in the regular expression aren't also picked up as part of the operator (doesn't cause a problem, but just feels dirty)
+      conc = CGI.escape(';')
       unless args[:filters].empty?    # filters are a little more complicated because they can have all kinds of modifiers
         output += '&filters=' + args[:filters].collect do |filter|
           match, name, operator, expression = *filter.match(/^(\w*)\s*([=!<>~@]*)\s*(.*)$/)           # splat the resulting Match object to pull out the parts automatically
@@ -217,7 +218,7 @@ module Gattica
           else
             raise GatticaError::InvalidFilter, "The filter '#{filter}' is invalid. Filters should look like 'browser == Firefox' or 'browser==Firefox'"
           end
-        end.join(';')
+        end.join(conc)
       end
       output
     end
